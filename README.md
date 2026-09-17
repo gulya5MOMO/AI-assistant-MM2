@@ -1,4 +1,4 @@
-# 🕊️ MM2 Trade AI Project
+# 🕊️ MM2-Trade-Assistant
 
 > **Точный калькулятор окупаемости трейдов** для Roblox Murder Mystery 2.
 > Работает полностью локально — без нейросетей, без серверов, без интернета.
@@ -38,7 +38,7 @@
 ## ⚠️ Важно знать
 
 > Софт считает **только по твоей базе** `mm2_prices.txt`.
-> Если предмета там нет — он не сможет его посчитать и отметит значком **❓**.
+> Если предмета там нет — он не сможет его посчитать.
 > Всегда заноси новые предметы в базу, и расчёт будет точным.
 
 ---
@@ -75,9 +75,9 @@ pip install PyQt6 Pillow easyocr pyttsx3
 Открой `mm2_prices.txt` и впиши свои цены в формате:
 
 ```
-chroma_lightbringer = 3500
-batwing = 1200
-corrupt = 800
+Chroma Evergreen	Chroma	48,000
+Chroma Candleflame	Chroma	4,200
+Chroma Lightbringer	Chroma	420
 ```
 
 ## 🌐 Полезные ссылки

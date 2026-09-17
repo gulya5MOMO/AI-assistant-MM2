@@ -4,7 +4,7 @@
 > Работает полностью локально — без нейросетей, без серверов, без интернета.
 > Твои трейды — только твои.
 
-🌐 **Официальный сайт:** [mm2trade-ii-assistant.vercel.app](https://mm2trade-ii-assistant.vercel.app/)
+🌐 **Официальный сайт:** [mm2-trade-assistant.vercel.app](https://mm2-trade-assistant.vercel.app/)
 
 ![Python](https://img.shields.io/badge/Python-3.11%20%7C%203.12-blue?logo=python&logoColor=white)
 ![PyQt6](https://img.shields.io/badge/GUI-PyQt6-green)
@@ -82,7 +82,7 @@ Chroma Lightbringer	Chroma	420
 
 ## 🌐 Полезные ссылки
 
-- 🏠 **Сайт проекта:** [mm2trade-ii-assistant.vercel.app](https://mm2trade-ii-assistant.vercel.app/)
+- 🏠 **Сайт проекта:** [mm2-trade-assistant.vercel.app](https://mm2-trade-assistant.vercel.app/)
 - 💬 **GitHub:** [github.com/gulya5MOMO](https://github.com/gulya5MOMO)
 
 ---

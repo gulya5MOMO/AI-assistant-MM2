@@ -3,8 +3,8 @@
 > **Точный калькулятор окупаемости трейдов** для Roblox Murder Mystery 2.
 > Работает полностью локально — без нейросетей, без серверов, без интернета.
 > Твои трейды — только твои.
-
-🌐 **Официальный сайт:** [mm2-trade-assistant.vercel.app](https://mm2-trade-assistant.vercel.app/)
+> двигать кнопку ПКМ и удерживаете 
+🌐 ** Наш официальный сайт:** [mm2-trade-assistant.vercel.app](https://mm2-trade-assistant.vercel.app/)
 
 ![Python](https://img.shields.io/badge/Python-3.11%20%7C%203.12-blue?logo=python&logoColor=white)
 ![PyQt6](https://img.shields.io/badge/GUI-PyQt6-green)
@@ -17,16 +17,13 @@
 
 **MM2 Trade AI Project** — лёгкий десктопный помощник для трейдеров в Roblox Murder Mystery 2.
 Берёт твою базу цен из `mm2_prices.txt`, разбирает текст трейда и моментально выдаёт вердикт:
-**WIN / FAIR / LOSS**, разницу в цене и детальный расчёт по каждому предмету. Вердикт озвучивается голосом.
-
-**Никаких нейросетей, никаких 2 ГБ моделей, никаких интернет-запросов.** Чистая математика на твоём ПК.
+Вердикт озвучивается голосом.
 
 ---
 
 ## ✨ Возможности
 
 - 🧮 **Точный расчёт** — считает по твоей базе цен из `mm2_prices.txt`
-- 📸 **Распознавание скриншотов** — кидаешь картинку трейда, EasyOCR вытаскивает текст
 - 🔊 **Озвучка вердикта** — голосом сообщает результат
 - 🕊️ **Работа в трее** — сидит рядом с часами, меню по правой кнопке (Показать / Скрыть / Выйти)
 - 📂 **Открытый код** — можешь залезть внутрь и переделать под себя
@@ -82,7 +79,7 @@ Chroma Lightbringer	Chroma	420
 
 ## 🌐 Полезные ссылки
 
-- 🏠 **Сайт проекта:** [mm2-trade-assistant.vercel.app](https://mm2-trade-assistant.vercel.app/)
+- 🏠 **наш сайт проекта:** [mm2-trade-assistant.vercel.app](https://mm2-trade-assistant.vercel.app/)
 - 💬 **GitHub:** [github.com/gulya5MOMO](https://github.com/gulya5MOMO)
 
 ---

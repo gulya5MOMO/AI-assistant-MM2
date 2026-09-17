@@ -36,7 +36,7 @@ MM2 Trade AI Project — лёгкий десктопный помощник дл
 
 🚀 Быстрый старт
 Шаг 0. Установи Python
-Скачай Python 3.11 или 3.12 с python.org.
+Скачай Python 3.11 или 3.12 с https://www.python.org/
 
 ⚠️ ОБЯЗАТЕЛЬНО при установке поставь галочку Add Python to PATH — иначе консоль не поймёт pip.
 

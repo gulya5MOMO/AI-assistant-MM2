@@ -4,7 +4,7 @@
 Работает полностью локально — без нейросетей, без серверов, без интернета.
 Твои трейды — только твои.
 
-🌐 Наш официальный сайт: mm2-trade-assistant.vercel.app
+🌐 Наш официальный сайт: https://mm2-trade-assistant.vercel.app/
 
 https://img.shields.io/badge/Python-3.11%20%7C%203.12-blue?logo=python&logoColor=white
 https://img.shields.io/badge/GUI-PyQt6-green
@@ -66,7 +66,7 @@ Chroma Evergreen         Chroma    48,000
 Chroma Candleflame       Chroma     4,200
 Chroma Lightbringer      Chroma       420
 🌐 Полезные ссылки
-🏠 Наш сайт проекта: mm2-trade-assistant.vercel.app
+🏠 Наш сайт проекта: https://mm2-trade-assistant.vercel.app/
 
 💬 GitHub: github.com/gulya5MOMO
 

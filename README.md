@@ -6,11 +6,6 @@
 
 🌐 Наш официальный сайт: https://mm2-trade-assistant.vercel.app/
 
-https://img.shields.io/badge/Python-3.11%20%7C%203.12-blue?logo=python&logoColor=white
-https://img.shields.io/badge/GUI-PyQt6-green
-https://img.shields.io/badge/License-MIT-yellow
-https://img.shields.io/badge/Platform-Windows-0078D6?logo=windows
-
 📖 Что это
 MM2 Trade AI Project — лёгкий десктопный помощник для трейдеров в Roblox Murder Mystery 2.
 Берёт твою базу цен из mm2_prices.txt, разбирает текст трейда и моментально выдаёт вердикт:

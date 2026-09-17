@@ -80,18 +80,6 @@ batwing = 1200
 corrupt = 800
 ```
 
----
-
-## ❌ Что НЕ нужно
-
-- ❌ **Ollama** — не нужна
-- ❌ **ollama run llama3.2:3b** — не нужна, 2 ГБ качать не надо
-- ❌ **LLaMA** — не нужна
-- ❌ **requests** — не используется
-- ❌ **pyinstaller** — нужен только если сам захочешь собрать `.exe`
-
----
-
 ## 🌐 Полезные ссылки
 
 - 🏠 **Сайт проекта:** [mm2trade-ii-assistant.vercel.app](https://mm2trade-ii-assistant.vercel.app/)

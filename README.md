@@ -8,7 +8,7 @@
 
 📖 Что это
 MM2 Trade AI Project — лёгкий десктопный помощник для трейдеров в Roblox Murder Mystery 2.
-Берёт твою базу цен из mm2_prices.txt, разбирает текст трейда и моментально выдаёт вердикт:
+Берёт твою базу цен из mm2_prices.txt, разбирает текст трейда и моментально выдаёт вердикт.
 Вердикт озвучивается голосом.
 
 ✨ Возможности
@@ -36,9 +36,10 @@ MM2 Trade AI Project — лёгкий десктопный помощник дл
 ⚠️ ОБЯЗАТЕЛЬНО при установке поставь галочку Add Python to PATH — иначе консоль не поймёт pip.
 
 Шаг 1. Установи библиотеки
-Нажми Win + R, вбей cmd, нажми Enter. В чёрном терминале выполни:
+Нажми Win + R, вбей cmd, нажми Enter.
+В чёрном терминале выполни:
 
-bash
+text
 pip install PyQt6 Pillow easyocr pyttsx3
 Шаг 2. Запуск
 Распакуй архив с проектом.
@@ -57,16 +58,13 @@ pip install PyQt6 Pillow easyocr pyttsx3
 Открой mm2_prices.txt и впиши свои цены в формате:
 
 text
-Chroma Evergreen         Chroma    48,000
-Chroma Candleflame       Chroma     4,200
-Chroma Lightbringer      Chroma       420
+Chroma Evergreen      Chroma    48,000
+Chroma Candleflame    Chroma     4,200
+Chroma Lightbringer   Chroma       420
 🌐 Полезные ссылки
 🏠 Наш сайт проекта: https://mm2-trade-assistant.vercel.app/
 
-💬 GitHub: github.com/gulya5MOMO
+💬 GitHub: https://github.com/gulya5MOMO
 
 👤 Автор
-gulya5MOMO — github.com/gulya5MOMO 🕊️
-
-⭐ Поддержка
-Если проект зашёл — поставь ⭐ звезду репозиторию. Это лучший мотиватор продолжать работу.
+gulya5MOMO — https://github.com/gulya5MOMO 🕊️

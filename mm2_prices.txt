@@ -1,0 +1,3 @@
+Chroma Evergreen	Chroma	48,000
+Chroma Candleflame	Chroma	4,200
+Chroma Lightbringer	Chroma	420

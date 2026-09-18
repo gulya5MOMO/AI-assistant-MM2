@@ -1,0 +1,7 @@
+PyQt6>=6.4.0
+Pillow>=10.0.0
+pyttsx3>=2.90
+winrt>=1.0.0
+numpy>=1.24.0
+pywin32>=306
+comtypes>=1.2.0

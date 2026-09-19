@@ -4,7 +4,6 @@ import re
 import io
 import asyncio
 import threading
-import traceback
 import difflib
 import pythoncom
 from PyQt6.QtCore import Qt, QPoint, QPropertyAnimation, QEasingCurve, QTimer, pyqtProperty
@@ -33,10 +32,9 @@ PRICES_PATH = os.path.join(base_dir(), "mm2_prices.txt")
 
 
 def log(msg):
-    pass  # Логирование отключено
+    pass  # логирование отключено
 
 
-# ============ БАЗА ЦЕН ============
 DEFAULT_PRICES = {
     "gingerscope": 900, "evergreen": 300, "evergun": 280, "elderwood blade": 110,
     "chroma evergreen": 320, "chroma evergun": 310, "chroma gemstone": 38,
@@ -87,57 +85,32 @@ for name in PRICES:
     if name.startswith("chroma "):
         CHROMA_ITEMS.add(name[len("chroma "):])
 
-OCR_FIXES = {
-    "slashcr": "slasher", "lascr": "laser", "secr": "seer",
-    "chmmok": "chroma", "cliroma": "chroma", "chorma": "chroma",
-    "ch orna": "chroma", "ch ulna": " ", "chromo": "chroma",
-    "chrom": "chroma", "cnroma": "chroma", "throma": "chroma",
-    "biobiade": "bioblade", "biobtade": "bioblade",
-    "bloblade": "bioblade",
-    "lugcr": "luger", "seor": "seer", "scer": "seer",
-    "1uger": "luger", "lugor": "luger", "iuger": "luger",
-    "tidcs": "tides", "5aw": "saw", "sav": "saw",
-    "5hark": "shark", "sharic": "shark",
-    "gingcrblade": "gingerblade",
-    "v1rtual": "virtual", "vlrtual": "virtual", "virtua1": "virtual",
-    "v1rtua1": "virtual", "virtuai": "virtual", "vlrtuai": "virtual",
-    "v1rtuai": "virtual",
-    "rcd luger": "red luger", "red 1uger": "red luger",
-    "rcd 1uger": "red luger", "red lugcr": "red luger",
-    "redluger": "red luger", "redlugcr": "red luger",
-}
 
-
-def fuzzy_find_item(word, cutoff=0.65):
+def fuzzy_find_item(word, cutoff=0.6):
     if not word or len(word) < 3:
         return None
     word = word.lower().strip()
     if word in PRICES:
         return word
     matches = difflib.get_close_matches(word, KNOWN_ITEMS, n=1, cutoff=cutoff)
-    if matches:
-        return matches[0]
-    if len(word) <= 5:
-        matches = difflib.get_close_matches(word, KNOWN_ITEMS, n=1, cutoff=0.55)
-        if matches:
-            return matches[0]
-    return None
+    return matches[0] if matches else None
 
 
 # ============ WINDOWS OCR ============
 def _get_ocr_engine():
     from winrt.windows.media.ocr import OcrEngine
     from winrt.windows.globalization import Language
-    engine = None
     for lang_code in ['en', 'ru']:
         try:
-            lang = Language(lang_code)
-            engine = OcrEngine.try_create_from_language(lang)
+            engine = OcrEngine.try_create_from_language(Language(lang_code))
             if engine:
                 return engine
         except:
             continue
-    return OcrEngine.try_create_from_user_profile_languages()
+    try:
+        return OcrEngine.try_create_from_user_profile_languages()
+    except:
+        return None
 
 
 async def _ocr_words_async(pil_image):
@@ -169,82 +142,63 @@ async def _ocr_words_async(pil_image):
             r = word.bounding_rect
             words.append({
                 'text': word.text,
-                'x': int(r.x),
-                'y': int(r.y),
-                'w': int(r.width),
-                'h': int(r.height),
+                'x': int(r.x), 'y': int(r.y),
+                'w': int(r.width), 'h': int(r.height),
             })
     return words
 
 
 def ocr_words(pil_image):
+    result = []
     try:
-        return asyncio.run(_ocr_words_async(pil_image))
+        try:
+            pythoncom.CoInitialize()
+        except:
+            pass
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            result = loop.run_until_complete(_ocr_words_async(pil_image))
+        finally:
+            loop.close()
     except:
-        return []
+        pass
+    return result
 
 
-# ============ ХЕЛПЕРЫ ============
 def enhance(img):
     w, h = img.size
     big = img.resize((w * 3, h * 3), Image.LANCZOS)
-    big = ImageEnhance.Contrast(big).enhance(1.5)
-    big = ImageEnhance.Sharpness(big).enhance(2.0)
+    big = ImageEnhance.Contrast(big).enhance(1.4)
     return big
 
 
-def find_phrase(words, phrase_words, y_tol=25):
-    phrase_lower = [p.lower() for p in phrase_words]
-    n = len(phrase_lower)
-    for i in range(len(words)):
-        if words[i]['text'].lower().strip('.,:;!?()') != phrase_lower[0]:
-            continue
-        found = True
-        prev_y = words[i]['y']
-        prev_x = words[i]['x']
-        for k in range(1, n):
-            found_k = False
-            for j in range(i + 1, min(i + 10, len(words))):
-                w = words[j]
-                if w['text'].lower().strip('.,:;!?()') != phrase_lower[k]:
-                    continue
-                if abs(w['y'] - prev_y) > y_tol:
-                    continue
-                if w['x'] < prev_x:
-                    continue
-                found_k = True
-                prev_y = w['y']
-                prev_x = w['x']
-                break
-            if not found_k:
-                found = False
-                break
-        if found:
-            return words[i]
-    return None
+def clean_word(s):
+    return re.sub(r'[^a-z0-9 ]', '', s.lower()).strip()
 
 
-def normalize(text):
-    t = text.lower()
-    for wrong, right in sorted(OCR_FIXES.items(), key=lambda x: -len(x[0])):
-        t = t.replace(wrong, right)
-    return t
+def find_offer_y(words):
+    offers = []
+    for w in words:
+        t = clean_word(w['text'])
+        if 'offer' in t or 'otfer' in t or 'otter' in t or t == 'offer':
+            offers.append(w)
+    return offers
 
 
-# ============ ПАРСЕР СТОРОНЫ ============
-def parse_side_from_words(words, y_min, y_max, side_name):
+# ============ ПАРСЕР ============
+def parse_side(words, y_min, y_max, side_name):
     side_words = [w for w in words if y_min <= w['y'] <= y_max]
     side_words.sort(key=lambda w: (w['y'] // 30, w['x']))
 
     tokens = []
     for w in side_words:
-        t = normalize(w['text'])
-        t_clean = re.sub(r'[^a-z0-9 ]', '', t).strip()
-        if not t_clean:
+        t = clean_word(w['text'])
+        if not t:
             continue
-        for p in t_clean.split():
+        for p in t.split():
             if p:
-                tokens.append({'text': p, 'x': w['x'], 'y': w['y'], 'raw': w['text']})
+                tokens.append({'text': p, 'y': w['y']})
 
     found = []
     used = set()
@@ -252,11 +206,11 @@ def parse_side_from_words(words, y_min, y_max, side_name):
     for i, tok in enumerate(tokens):
         text = tok['text']
 
-        if text in ("x", "x2", "x3", "x4", "x5", "your", "offer", "their", "chroma", "the", "and", "or"):
+        if text in ("x", "your", "offer", "their", "chroma", "the", "and", "or",
+                    "wait", "please", "before", "accepting", "other", "player",
+                    "has", "accepted", "are", "you", "sure", "decline", "otfer", "otter"):
             continue
-        if re.match(r'^x\d+$', text):
-            continue
-        if re.match(r'^\d+$', text):
+        if re.match(r'^x\d+$', text) or re.match(r'^\d+$', text):
             continue
 
         matched_item = None
@@ -264,27 +218,22 @@ def parse_side_from_words(words, y_min, y_max, side_name):
             if item in text:
                 matched_item = item
                 break
-
         if not matched_item:
-            matched_item = fuzzy_find_item(text, cutoff=0.65)
-
+            matched_item = fuzzy_find_item(text, cutoff=0.6)
         if not matched_item:
             continue
 
         is_chroma = False
         for j in range(max(0, i - 5), i):
-            prev = tokens[j]
-            if abs(prev['y'] - tok['y']) < 120:
-                if "chrom" in prev['text']:
-                    is_chroma = True
-                    break
+            if abs(tokens[j]['y'] - tok['y']) < 120 and 'chrom' in tokens[j]['text']:
+                is_chroma = True
+                break
 
         count = 1
         for j in range(i + 1, min(len(tokens), i + 6)):
-            next_tok = tokens[j]
-            if abs(next_tok['y'] - tok['y']) > 40:
+            if abs(tokens[j]['y'] - tok['y']) > 40:
                 break
-            m = re.match(r'^x(\d+)$', next_tok['text'])
+            m = re.match(r'^x(\d+)$', tokens[j]['text'])
             if m:
                 try:
                     n = int(m.group(1))
@@ -297,7 +246,6 @@ def parse_side_from_words(words, y_min, y_max, side_name):
         final_name = matched_item
         if is_chroma and matched_item in CHROMA_ITEMS:
             final_name = f"chroma {matched_item}"
-
         if final_name not in PRICES:
             final_name = matched_item
 
@@ -310,13 +258,7 @@ def parse_side_from_words(words, y_min, y_max, side_name):
             continue
         used.add(key)
 
-        found.append({
-            'name': final_name,
-            'count': count,
-            'price': price,
-            'total': price * count,
-            'is_chroma': is_chroma,
-        })
+        found.append({'name': final_name, 'count': count, 'price': price, 'total': price * count})
 
     return found
 
@@ -332,25 +274,17 @@ def say_voice(text):
         eng = pyttsx3.init(driverName='sapi5')
         eng.setProperty('rate', 165)
         eng.setProperty('volume', 1.0)
-        ru_voice_id = None
         for v in eng.getProperty('voices'):
             name = (v.name or "").lower()
             vid = (v.id or "").lower()
             if ('ru' in vid) or ('russian' in name) or ('irina' in name) or ('pavel' in name):
-                ru_voice_id = v.id
+                eng.setProperty('voice', v.id)
                 break
-        if ru_voice_id:
-            eng.setProperty('voice', ru_voice_id)
         eng.say(text)
         eng.runAndWait()
         eng.stop()
     except:
         pass
-    finally:
-        try:
-            pythoncom.CoUninitialize()
-        except:
-            pass
 
 
 # ============ КНОПКА ============
@@ -461,24 +395,31 @@ class OverlayButton(QWidget):
                 w['w'] //= scale
                 w['h'] //= scale
 
-            your = find_phrase(words_big, ["your", "offer"])
-            their = find_phrase(words_big, ["their", "offer"])
+            offers = find_offer_y(words_big)
 
-            if not your or not their:
-                say_voice("Не вижу окно трейда.")
-                return
+            if len(offers) < 2:
+                if len(offers) == 1:
+                    y_your = offers[0]['y']
+                    y_their = y_your + 200
+                else:
+                    say_voice("Не вижу окно трейда. Проверь что трейд открыт на экране.")
+                    return
+            else:
+                offers.sort(key=lambda w: w['y'])
+                y_your = offers[0]['y']
+                y_their = offers[1]['y']
 
-            y_your = your['y']
-            y_their = their['y']
-
-            y_tol = 40
-            line_words = [w for w in words_big if abs(w['y'] - y_their) < y_tol]
-            x_left = max(0, min(w['x'] for w in line_words) - 10)
-            x_right = min(W, max(w['x'] + w['w'] for w in line_words) + 30)
+            line_words = [w for w in words_big if abs(w['y'] - y_their) < 50]
+            if line_words:
+                x_left = max(0, min(w['x'] for w in line_words) - 20)
+                x_right = min(W, max(w['x'] + w['w'] for w in line_words) + 50)
+            else:
+                x_left = 0
+                x_right = W
 
             y1_our = max(0, y_your - 10)
-            y2_our = y_their - 30
-            y1_their = y_their + 30
+            y2_our = y_their - 20
+            y1_their = y_their + 40
             y2_their = min(H, y_their + 500)
 
             crop_our = full.crop((x_left, y1_our, x_right, y2_our))
@@ -494,8 +435,8 @@ class OverlayButton(QWidget):
                 w['x'] //= scale
                 w['y'] //= scale
 
-            our_found = parse_side_from_words(words_our, 0, crop_our.size[1], "НАШИ")
-            their_found = parse_side_from_words(words_their, 0, crop_their.size[1], "ИХ")
+            our_found = parse_side(words_our, 0, crop_our.size[1], "НАШИ")
+            their_found = parse_side(words_their, 0, crop_their.size[1], "ИХ")
 
             our_sum = sum(x['total'] for x in our_found)
             their_sum = sum(x['total'] for x in their_found)
@@ -531,16 +472,12 @@ class TrayApp:
         self.tray.setToolTip("Pigeon Trade Checker 🕊️")
 
         menu = QMenu()
-        act_toggle = QAction("Показать / Скрыть", self.app)
-        act_toggle.triggered.connect(self.toggle_overlay)
-        act_show = QAction("Показать кнопку", self.app)
-        act_show.triggered.connect(self.show_overlay)
-        act_hide = QAction("Скрыть кнопку", self.app)
-        act_hide.triggered.connect(self.hide_overlay)
-        menu.addAction(act_toggle)
-        menu.addSeparator()
-        menu.addAction(act_show)
-        menu.addAction(act_hide)
+        for text, slot in [("Показать / Скрыть", self.toggle_overlay),
+                           ("Показать кнопку", self.show_overlay),
+                           ("Скрыть кнопку", self.hide_overlay)]:
+            a = QAction(text, self.app)
+            a.triggered.connect(slot)
+            menu.addAction(a)
         menu.addSeparator()
         act_exit = QAction("Выход (закрыть полностью)", self.app)
         act_exit.triggered.connect(self.quit_app)

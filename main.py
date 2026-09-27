@@ -32,7 +32,7 @@ PRICES_PATH = os.path.join(base_dir(), "mm2_prices.txt")
 
 
 def log(msg):
-    pass  # логирование отключено
+    pass
 
 
 DEFAULT_PRICES = {
@@ -41,6 +41,24 @@ DEFAULT_PRICES = {
     "chroma boneblade": 30, "chroma tides": 35, "luger": 60, "heat": 50, "corrupt": 220,
     "chroma slasher": 40, "chroma laser": 45, "chroma gingerblade": 25, "chroma seer": 30
 }
+
+
+def parse_price(price_str):
+    s = price_str.strip().replace(",", "").replace(" ", "").replace("$", "")
+    multiplier = 1
+    if s.endswith(('k', 'K', 'к', 'К')):
+        multiplier = 1_000
+        s = s[:-1]
+    elif s.endswith(('m', 'M', 'м', 'М')):
+        multiplier = 1_000_000
+        s = s[:-1]
+    elif s.endswith(('b', 'B', 'б', 'Б')):
+        multiplier = 1_000_000_000
+        s = s[:-1]
+    try:
+        return int(float(s) * multiplier)
+    except ValueError:
+        return None
 
 
 def load_prices():
@@ -57,6 +75,14 @@ def load_prices():
             continue
     if lines is None:
         return dict(DEFAULT_PRICES)
+
+    categories = {
+        "chroma", "godly", "ancient", "vintage", "common",
+        "uncommon", "rare", "legendary", "unique", "collectible",
+        "set", "pet", "knife", "gun",
+        "нож", "пистолет", "ружьё", "ружье", "меч", "топор",
+    }
+
     for line in lines:
         line = line.strip()
         if not line or line.startswith("#"):
@@ -67,13 +93,20 @@ def load_prices():
             parts = [p.strip() for p in re.split(r"\s{2,}", line) if p.strip()]
         if len(parts) < 2:
             continue
-        name = parts[0].lower().strip()
-        price_str = parts[-1].replace(",", "").replace(" ", "").replace("$", "")
-        try:
-            price = int(float(price_str))
-        except ValueError:
+
+        price = parse_price(parts[-1])
+        if price is None:
             continue
-        prices[name] = price
+
+        for part in parts[:-1]:
+            name = part.lower().strip()
+            name_clean = re.sub(r'[^\w\s]', '', name, flags=re.UNICODE).strip()
+            if not name_clean or len(name_clean) < 3:
+                continue
+            if name_clean in categories:
+                continue
+            prices[name_clean] = price
+
     return prices if prices else dict(DEFAULT_PRICES)
 
 
@@ -97,23 +130,16 @@ def fuzzy_find_item(word, cutoff=0.6):
 
 
 # ============ WINDOWS OCR ============
-def _get_ocr_engine():
+def _get_ocr_engine(lang_code):
     from winrt.windows.media.ocr import OcrEngine
     from winrt.windows.globalization import Language
-    for lang_code in ['en', 'ru']:
-        try:
-            engine = OcrEngine.try_create_from_language(Language(lang_code))
-            if engine:
-                return engine
-        except:
-            continue
     try:
-        return OcrEngine.try_create_from_user_profile_languages()
+        return OcrEngine.try_create_from_language(Language(lang_code))
     except:
         return None
 
 
-async def _ocr_words_async(pil_image):
+async def _ocr_single_async(pil_image, lang_code):
     from winrt.windows.graphics.imaging import BitmapDecoder
     from winrt.windows.storage.streams import DataWriter, InMemoryRandomAccessStream
 
@@ -131,7 +157,7 @@ async def _ocr_words_async(pil_image):
     decoder = await BitmapDecoder.create_async(stream)
     bitmap = await decoder.get_software_bitmap_async()
 
-    engine = _get_ocr_engine()
+    engine = _get_ocr_engine(lang_code)
     if engine is None:
         return []
 
@@ -148,8 +174,17 @@ async def _ocr_words_async(pil_image):
     return words
 
 
+def _text_quality(text):
+    if not text:
+        return 0
+    letters = sum(1 for c in text if c.isalpha())
+    weird = sum(1 for c in text if not c.isalpha() and not c.isdigit() and c != ' ')
+    cyr = sum(1 for c in text if '\u0400' <= c <= '\u04ff')
+    return letters * 2 - weird * 3 + cyr
+
+
 def ocr_words(pil_image):
-    result = []
+    all_words = []
     try:
         try:
             pythoncom.CoInitialize()
@@ -158,12 +193,40 @@ def ocr_words(pil_image):
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         try:
-            result = loop.run_until_complete(_ocr_words_async(pil_image))
+            en_words = loop.run_until_complete(_ocr_single_async(pil_image, 'en-US'))
+            ru_words = loop.run_until_complete(_ocr_single_async(pil_image, 'ru-RU'))
         finally:
             loop.close()
+
+        merged = []
+        used_ru = set()
+        for ew in en_words:
+            best_ru = None
+            best_idx = -1
+            for i, rw in enumerate(ru_words):
+                if i in used_ru:
+                    continue
+                if abs(ew['x'] - rw['x']) < 40 and abs(ew['y'] - rw['y']) < 20:
+                    best_ru = rw
+                    best_idx = i
+                    break
+            if best_ru:
+                used_ru.add(best_idx)
+                if _text_quality(best_ru['text']) > _text_quality(ew['text']):
+                    merged.append(best_ru)
+                else:
+                    merged.append(ew)
+            else:
+                merged.append(ew)
+
+        for i, rw in enumerate(ru_words):
+            if i not in used_ru:
+                merged.append(rw)
+
+        all_words = merged
     except:
         pass
-    return result
+    return all_words
 
 
 def enhance(img):
@@ -173,17 +236,96 @@ def enhance(img):
     return big
 
 
+# ============ НОРМАЛИЗАЦИЯ ============
+CYR_TO_LAT = {
+    'а': 'a', 'в': 'b', 'г': 'r', 'е': 'e', 'ё': 'e', 'з': '3',
+    'и': 'u', 'й': 'u', 'к': 'k', 'л': 'n', 'м': 'm', 'н': 'h',
+    'о': 'o', 'п': 'n', 'р': 'p', 'с': 'c', 'т': 't', 'у': 'y',
+    'х': 'x', 'ч': '4', 'ы': 'b', 'ь': 'b', 'э': 'e', 'ю': 'o', 'я': 'r',
+    'А': 'A', 'В': 'B', 'Г': 'R', 'Е': 'E', 'Ё': 'E', 'З': '3',
+    'И': 'U', 'Й': 'U', 'К': 'K', 'Л': 'N', 'М': 'M', 'Н': 'H',
+    'О': 'O', 'П': 'N', 'Р': 'P', 'С': 'C', 'Т': 'T', 'У': 'Y',
+    'Х': 'X', 'Ч': '4', 'Ы': 'B', 'Ь': 'B', 'Э': 'E', 'Ю': 'O', 'Я': 'R',
+}
+
+
 def clean_word(s):
-    return re.sub(r'[^a-z0-9 ]', '', s.lower()).strip()
+    s = s.lower()
+    return re.sub(r'[^\w\s]', '', s, flags=re.UNICODE).strip()
 
 
-def find_offer_y(words):
+def fix_homoglyphs(text):
+    result = []
+    for ch in text:
+        result.append(CYR_TO_LAT.get(ch, ch))
+    return ''.join(result)
+
+
+# ============ ЗАГОЛОВКИ ============
+OFFER_MARKERS = [
+    "предложение", "предлож", "предложен", "обмен",
+    "offer", "otfer", "otter", "ofier", "ofrer", "ofter", "offor",
+    "predlo", "predl", "iipeajio", "ehvie", "preajio", "npeajio",
+]
+
+
+def find_offer_headers(words):
     offers = []
     for w in words:
-        t = clean_word(w['text'])
-        if 'offer' in t or 'otfer' in t or 'otter' in t or t == 'offer':
+        raw = w['text'].lower()
+        t_clean = clean_word(raw)
+        t_fixed = clean_word(fix_homoglyphs(raw))
+
+        is_offer = False
+        for marker in OFFER_MARKERS:
+            if marker in t_clean or marker in t_fixed:
+                is_offer = True
+                break
+        if is_offer:
             offers.append(w)
-    return offers
+
+    if len(offers) >= 2:
+        offers.sort(key=lambda w: w['y'])
+        return offers[0], offers[1]
+
+    if len(offers) == 1:
+        o = offers[0]
+        max_y = max((w['y'] for w in words), default=1000)
+        if o['y'] < max_y * 0.5:
+            their_fake = dict(o)
+            their_fake['y'] = o['y'] + 290
+            return o, their_fake
+        else:
+            your_fake = dict(o)
+            your_fake['y'] = max(0, o['y'] - 290)
+            return your_fake, o
+
+    YOUR_MARKERS = ["your", "vour", "ваше", "ваш", "твое", "твоё", "мое", "моё"]
+    THEIR_MARKERS = ["their", "thelr", "их", "соперник", "противник"]
+
+    your_word = None
+    their_word = None
+    for w in words:
+        raw = w['text'].lower()
+        t_clean = clean_word(raw)
+        t_fixed = clean_word(fix_homoglyphs(raw))
+        if your_word is None:
+            for m in YOUR_MARKERS:
+                if m in t_clean or m in t_fixed:
+                    your_word = w
+                    break
+        if their_word is None:
+            for m in THEIR_MARKERS:
+                if m in t_clean or m in t_fixed:
+                    their_word = w
+                    break
+
+    if your_word and their_word:
+        if your_word['y'] > their_word['y']:
+            your_word, their_word = their_word, your_word
+        return your_word, their_word
+
+    return None, None
 
 
 # ============ ПАРСЕР ============
@@ -193,22 +335,36 @@ def parse_side(words, y_min, y_max, side_name):
 
     tokens = []
     for w in side_words:
-        t = clean_word(w['text'])
-        if not t:
-            continue
-        for p in t.split():
-            if p:
-                tokens.append({'text': p, 'y': w['y']})
+        raw = w['text'].lower()
+        variants = set()
+        variants.add(clean_word(raw))
+        variants.add(clean_word(fix_homoglyphs(raw)))
+        for v in variants:
+            if not v:
+                continue
+            for p in v.split():
+                if p:
+                    tokens.append({'text': p, 'y': w['y']})
 
     found = []
     used = set()
 
+    skip_words = {
+        "x", "your", "vour", "offer", "their", "thelr", "chroma",
+        "the", "and", "or", "wait", "please", "before", "accepting",
+        "other", "player", "has", "accepted", "are", "you", "sure",
+        "decline", "otfer", "otter",
+        "хрома", "хром", "хромы", "ваш", "ваша", "ваше", "вашего",
+        "твое", "твоё", "твоя", "их", "обмен", "предложение",
+        "предлож", "жду", "ожидание", "пожалуйста", "подожди",
+        "до", "принятия", "другой", "игрок", "принял",
+        "уверены", "отмена", "отклонить", "отказ", "подтвердить",
+    }
+
     for i, tok in enumerate(tokens):
         text = tok['text']
 
-        if text in ("x", "your", "offer", "their", "chroma", "the", "and", "or",
-                    "wait", "please", "before", "accepting", "other", "player",
-                    "has", "accepted", "are", "you", "sure", "decline", "otfer", "otter"):
+        if text in skip_words:
             continue
         if re.match(r'^x\d+$', text) or re.match(r'^\d+$', text):
             continue
@@ -225,9 +381,11 @@ def parse_side(words, y_min, y_max, side_name):
 
         is_chroma = False
         for j in range(max(0, i - 5), i):
-            if abs(tokens[j]['y'] - tok['y']) < 120 and 'chrom' in tokens[j]['text']:
-                is_chroma = True
-                break
+            if abs(tokens[j]['y'] - tok['y']) < 120:
+                pt = tokens[j]['text']
+                if 'chrom' in pt or 'хром' in pt:
+                    is_chroma = True
+                    break
 
         count = 1
         for j in range(i + 1, min(len(tokens), i + 6)):
@@ -395,19 +553,22 @@ class OverlayButton(QWidget):
                 w['w'] //= scale
                 w['h'] //= scale
 
-            offers = find_offer_y(words_big)
+            your, their = find_offer_headers(words_big)
 
-            if len(offers) < 2:
-                if len(offers) == 1:
-                    y_your = offers[0]['y']
-                    y_their = y_your + 200
-                else:
-                    say_voice("Не вижу окно трейда. Проверь что трейд открыт на экране.")
-                    return
-            else:
-                offers.sort(key=lambda w: w['y'])
-                y_your = offers[0]['y']
-                y_their = offers[1]['y']
+            if not your or not their:
+                try:
+                    full.save(os.path.join(base_dir(), "debug.png"))
+                    with open(os.path.join(base_dir(), "debug.txt"), "w", encoding="utf-8") as f:
+                        f.write("OCR слова:\n")
+                        for w in words_big:
+                            f.write(f"  x={w['x']} y={w['y']} '{w['text']}'\n")
+                except:
+                    pass
+                say_voice("Не вижу окно трейда. Проверь что трейд открыт на экране.")
+                return
+
+            y_your = your['y']
+            y_their = their['y']
 
             line_words = [w for w in words_big if abs(w['y'] - y_their) < 50]
             if line_words:
